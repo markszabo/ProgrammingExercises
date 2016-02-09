@@ -1,0 +1,25 @@
+function map = readInputFile(filename)
+    filecontent = fopen(filename,'r'); % open the file for reading
+    line = fgets(filecontent);
+    [rows, columns] = [strsplit(line,' '){1}, strsplit(line,' '){2}];
+    map = zeros(rows, columns);
+    rownr = 1;
+    while ~feof(filecontent)
+        line = fgets(filecontent); % read line by line
+        for i=1:columns
+            if strcmp(line(i),'#') 
+                map(rownr,i) = 1; 
+            end
+        end
+        
+        row = strsplit(line,'');
+        newTrip = trip(row{1}, row{2}, row{3}, row{4}, strtrim(row{5})); %TODO make it nicer
+        if(not(strcmp(days{end}.date,row{2}(1:10)))) %if new day, add it
+            days{end+1} = day(row{2}(1:10));
+        end
+        days{end}.addTrip(newTrip);
+        
+        rownr = rownr+1;
+    end
+    fclose(filecontent);
+end

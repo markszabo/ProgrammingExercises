@@ -1,0 +1,6 @@
+function printOutputFile(commands, file)
+    file = fopen(outputFile,'w'); fclose(file); % clear the file
+    file = fopen(outputFile,'w'); 
+    fprintf(file,''); %print the header - number of co
+    fclose(file);
+end;
