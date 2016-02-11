@@ -14,8 +14,9 @@ public class PE60 {
 		System.out.println("Program started");
 		boolean found = false;
 		for(int nrOfPrimes = 10; !found; nrOfPrimes += 10){
-			System.out.println("No solution found, trying 10 more");
+			System.out.println("No solution found, trying with the first "+Integer.toString(nrOfPrimes) +" primes");
 			int[] primes = firstNPrime(nrOfPrimes);
+			int[] checkPrimes = firstNPrime(nrOfPrimes*nrOfPrimes);
 			for(int i1=0; i1 < nrOfPrimes-4; i1++){
 				for(int i2=i1+1; i2 < nrOfPrimes-3; i2++){
 					for(int i3=i2+1; i3 < nrOfPrimes-2; i3++){
@@ -27,7 +28,8 @@ public class PE60 {
 								for(int m=0; m<5 && isGood; m++){
 									for(int n=0; n<5 && isGood; n++){
 										if(n==m) continue;
-										isGood = isInTheArray(concatIntegers(selectedPrimes[m],selectedPrimes[n]),primes,true);
+										if(!isInTheArray(concatIntegers(selectedPrimes[m],selectedPrimes[n]),checkPrimes,true))
+											isGood = false;
 									}
 								}
 								if(isGood){
