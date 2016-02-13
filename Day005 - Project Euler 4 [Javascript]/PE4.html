@@ -1,0 +1,47 @@
+<!DOCTYPE html >
+<html>
+<head>
+<meta charset="utf-8"> 
+<title>Project Euler 4</title>
+</head>
+<body>
+A palindromic number reads the same both ways. The largest palindrome made from the product of two 2-digit numbers is 9009 = 91 × 99.
+<br />
+Find the largest palindrome made from the product of two 3-digit numbers.
+<p style="text-align:center"><button type="button" onclick="calculate()">Calculate</button></p>
+<h3 style="text-align:center">Result:
+<textarea rows="2" cols="10" id="result"></textarea></h3>
+
+<script>
+function calculate(){
+	maxNumber = 0;
+	for(var i=999; i>0; i--){
+		for(var j=999; j>0; j--){
+			candidate = i*j;
+			if(isPalindrome(candidate) && candidate > maxNumber) maxNumber = candidate; 
+		}	
+	}
+	document.getElementById('result').value = maxNumber;
+}
+
+function isPalindrome(number){
+	var isPalindrome = true;
+	for(var i=0; i<(log10(number)+1)/2; i++){
+		if(getNthDigit(number,i) != getNthDigit(number,Math.floor(log10(number))-i)){
+			isPalindrome = false;
+			break;
+		}
+	}
+	return isPalindrome;	
+}
+
+function getNthDigit(number,n){
+	return number.toString()[n];
+}
+
+function log10(val) {
+  return Math.log(val) / Math.LN10;
+}
+</script>
+</body>
+</html>
