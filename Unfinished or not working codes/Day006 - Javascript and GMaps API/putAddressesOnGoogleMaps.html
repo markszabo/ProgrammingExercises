@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Put addresses on Google Maps</title>
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=true&key=AIzaSyDmMspdu3I9WM7HC4MGKokBXL4OHlW6cj4"></script>
+ 	 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+	<meta charset="UTF-8">
+    <style>
+      html, body {
+        height: 100%;
+
+      }
+
+      #map-canvas {
+	    margin: 0;
+        padding: 0;
+        height: 50%;
+        width: 100%;
+      }
+      #content-pane {
+        
+        width:100%;
+        
+      }
+      #outputDiv {
+      }
+    </style>
+    <script>
+var map;
+var geocoder;
+var bounds = new google.maps.LatLngBounds();
+var markersArray = [];
+
+var originIcon = 'https://chart.googleapis.com/chart?chst=d_map_pin_letter&chld=O|FFFF00|000000';
+
+function initialize() {
+  var opts = {
+    center: new google.maps.LatLng(47.7573814, 19.4231533),
+    zoom: 9
+  };
+  map = new google.maps.Map(document.getElementById('map-canvas'), opts);
+  geocoder = new google.maps.Geocoder();
+}
+
+function run(){
+  //for(var i=0; i<70; i+=10)
+  //  var places = fetchPlaces("i+".html", "//*[contains(@class, 'div_talalat_fejlec')]");
+  var places = fetchPlaces("0.html", "//*[contains(@class, 'div_talalat_fejlec')]");
+}
+	
+function Place(newnr, newname, newaddress){
+	this.nr = newnr;
+	this.name = newname;
+	this.address = newaddress;
+}
+
+function fetchPlaces(url, xpath){
+	var HTMLsource = getHTMLsource(url);
+	alert(getElemntByXpath(HTMLsource, xpath));
+}
+
+function getElementByXpath(htmlsource, xpath) {
+  return document.evaluate(xpath, htmlsource, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+}
+
+var tmpHTML;
+function getHTMLsource(url){
+	var request = makeHttpObject();
+	request.open("GET", url, true);
+	request.send(null);
+	request.onreadystatechange = function() {
+	  if (request.readyState == 4)
+		 tmpHTML = request.responseText;
+	};
+	while(tmpHTML == undefined){}	//not nice, but since I'm the only user, it works for me
+	return tmpHTML;
+}
+
+function makeHttpObject() {
+  try {return new XMLHttpRequest();}
+  catch (error) {}
+  try {return new ActiveXObject("Msxml2.XMLHTTP");}
+  catch (error) {}
+  try {return new ActiveXObject("Microsoft.XMLHTTP");}
+  catch (error) {}
+
+  throw new Error("Could not create HTTP request object.");
+}
+
+
+
+
+
+
+
+function getAllStationData(){
+	var allStations = new Array();
+	//open xml from https://nextbike.net/maps/nextbike-live.xml?domains=mb
+	var xmlhttp;
+	if (window.XMLHttpRequest)
+	  {// code for IE7+, Firefox, Chrome, Opera, Safari
+	  xmlhttp=new XMLHttpRequest();
+	  }
+	else
+	  {// code for IE6, IE5
+	  xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
+	  }
+	xmlhttp.onreadystatechange=function()
+	  {
+	  
+	  if (xmlhttp.readyState==4 && xmlhttp.status==200)
+		{//ha megvan a válasz, dolgozzuk fel az adatot
+		var myRegexp = /<place uid="\d*" lat="(\d*\.\d*)" lng="(\d*\.\d*)" name="(\d*)-([^\"]*)/g;
+		var match = myRegexp.exec(xmlhttp.responseText);
+		while (match != null) {
+			//document.getElementById('deb').innerHTML+=match[3]+" -> "+match[1]+", "+match[2]+"<br>";
+			allStations.push(new Station(match[3], match[4], match[1]+","+match[2]));//nr, name, lat,lng
+			match = myRegexp.exec(xmlhttp.responseText);
+			}
+		}
+	  }
+	xmlhttp.open("GET","https://nextbike.net/maps/nextbike-live.xml?domains=mb",false);
+	xmlhttp.send();
+	return allStations;
+}
+
+var eredmeny;
+var fulltime;
+var fulldistance;
+
+function calculateDistances() { //the main function
+	fulltime=0;
+	fulldistance=0;
+	eredmeny="";
+	//clear map
+	deleteOverlays();
+	//get stations data
+	var allStation = getAllStationData(); //an array of Station()-s
+	
+	//process user input
+	var rawInput = document.getElementById('input').value;
+	var myRegexp = /(\d\d\d\d.\d\d.\d\d) (\d\d):(\d\d)\s*Kerékpár \d* leadás (\d\d):(\d\d):\d\d \((\d*)-(\D*) - (\d*)-([^\)]*)/g;
+	//1: dátum, 2: indulás-óra, 3: indulás-perc, 4: érkezés-óra, 5: érkezés-perc, 6-induló állomás id, 7 -ind név, 8-érkezési állomás id, 9- név
+	var match = myRegexp.exec(rawInput);
+	
+	var trips = new Array();
+	
+	while (match != null){ //loop through every trip
+		trips.push(new Trip(match[1], (match[4]-match[2])*60+(match[5]-match[3])));
+		//find start station
+		for(var i=0; i<allStation.length; i++){
+			if(allStation[i].nr == match[6]){
+				trips[trips.length-1].from=allStation[i];
+				i=allStation.length;
+			}
+		}
+		if(trips[trips.length-1].from.nr == 0) alert("Nem találom az indulási állomást: "+match[6]+" - "+match[7]);
+		//find end station
+		for(var i=0; i<allStation.length; i++){
+			if(allStation[i].nr == match[8]){
+				trips[trips.length-1].to=allStation[i];
+				i=allStation.length;
+			}
+		}
+		if(trips[trips.length-1].to.nr == 0) alert("Nem találom a célállomást: "+match[8]+" - "+match[9]);
+		match = myRegexp.exec(rawInput);
+	}//next trip
+	
+	eredmeny="<table border=\"1px\"><tbody><tr><th>Mikor</th><th>Honnan</th><th>Hova</th><th>Távolság</th><th>Idő</th><th>Sebesség</th></tr>";
+	alltrips_global = trips;
+	findDistance();
+}
+
+var actual_trip;
+
+function findDistance(){
+	if(alltrips_global.length < 1){ //end of trips
+		document.getElementById('outputDiv').innerHTML = eredmeny+"</tbody></table>";
+		var fullmin=fulltime%60;
+		var fullhour=Math.round((fulltime-fullmin)/60);
+		document.getElementById('fullstat').innerHTML="Összes biciklizett idő: "+fullhour+":"+fullmin+", közben megtett távolság: "+Math.round(fulldistance/100)/10+" km. Átlag sebesség: "+Math.round(60*fulldistance/1000/fulltime*100)/100+" km/h.";
+	}
+	else{ //if there is any trip to process
+	  actual_trip = alltrips_global.shift(); //get the first trip
+	  
+	  //google maps part  - calculating distance
+	  var service = new google.maps.DistanceMatrixService();
+	  service.getDistanceMatrix(
+		{
+		  origins: [actual_trip.from.cord],
+		  destinations: [actual_trip.to.cord],
+		  travelMode: google.maps.TravelMode.WALKING,
+		  unitSystem: google.maps.UnitSystem.METRIC,
+		  avoidHighways: false,
+		  avoidTolls: false
+		}, callback);
+
+	}
+}
+
+function callback(response, status) {
+  if (status != google.maps.DistanceMatrixStatus.OK) {
+    alert('Error was: ' + status);
+  } else { //no error
+    //var origins = response.originAddresses;
+    //var destinations = response.destinationAddresses;
+    //var outputDiv = document.getElementById('outputDiv');
+    //deleteOverlays();
+
+	//var eredmeny = "<table border=\"1px\"><tbody><tr><th>Mikor</th><th>Honnan</th><th>Hova</th><th>Távolság</th><th>Idő</th><th>Sebesség</th></tr>";
+	
+	eredmeny+="<tr><td>"+actual_trip.date+"</td><td>"+actual_trip.from.name+ "</td><td>" + actual_trip.to.name
+            + '</td><td>' + response.rows[0].elements[0].distance.value + " m</td><td>"+actual_trip.duration+" perc</td><td>" 
+            + Math.round(60*response.rows[0].elements[0].distance.value/10/actual_trip.duration)/100 + " km/h</td></tr>\n";
+	fulltime+=actual_trip.duration;
+	fulldistance+=response.rows[0].elements[0].distance.value;
+	
+	//put a marker on the map
+	addMarker(actual_trip.from.cord, false);
+	addMarker(actual_trip.to.cord, true);
+	
+    /*for (var i = 0; i < origins.length; i++) {
+      var results = response.rows[i].elements;
+      addMarker(origins[i], false);
+      //for (var j = 0; j < results.length; j++) {
+        addMarker(destinations[i], true);
+        /*eredmeny += "<tr><td></td><td>"+origins[i] + "</td><td>" + destinations[i]
+            + '</td><td>' + results[i].distance.value + " m</td><td></td><td>" //distance.text results[i].duration.text
+            +  "</td></tr>\n";
+		  eredmeny += "<tr><td>"+date[i]+"</td><td>"+start_name[i] + "</td><td>" + dest_name[i]
+            + '</td><td>' + results[i].distance.value + " m</td><td>"+time[i]+" perc</td><td>" //distance.text results[i].duration.text
+            + Math.round(60*results[i].distance.value/1000/time[i]*100)/100 + " km/h</td></tr>\n";
+		  fulltime+=time[i];
+		  fulldistance+=results[i].distance.value; 
+       //}
+	  */
+	
+   }
+    findDistance();
+	/*eredmeny += "</tbody></table>";
+	document.getElementById('outputDiv').innerHTML=eredmeny;
+	fullmin=fulltime%60;
+	fullhour=Math.round((fulltime-fullmin)/60);
+	document.getElementById('fullstat').innerHTML="Összes biciklizett idő: "+fullhour+":"+fullmin+", közben megtett távolság: "+Math.round(fulldistance/100)/10+" km. Átlag sebesség: "+Math.round(60*fulldistance/1000/fulltime*100)/100+" km/h.";
+	*/
+  }
+
+  function addMarker(location, isDestination) {
+  var icon;
+  if (isDestination) {
+    icon = destinationIcon;
+  } else {
+    icon = originIcon;
+  }
+  
+     /* bounds.extend(location);
+      map.fitBounds(bounds);
+      var marker = new google.maps.Marker({
+        map: map,
+        position: location,
+        icon: icon
+      });
+      markersArray.push(marker);*/
+	  var marker = new google.maps.Marker({
+      position: new google.maps.LatLng(Number(location.split(",")[0]),Number(location.split(",")[1])),
+      map: map,
+	  icon: icon,
+  });
+   bounds.extend(new google.maps.LatLng(Number(location.split(",")[0]),Number(location.split(",")[1])));
+   map.fitBounds(bounds);
+   markersArray.push(marker);
+
+  
+  /*geocoder.geocode({'address': location}, function(results, status) {
+    if (status == google.maps.GeocoderStatus.OK) {
+      bounds.extend(results[0].geometry.location);
+      map.fitBounds(bounds);
+      var marker = new google.maps.Marker({
+        map: map,
+        position: results[0].geometry.location,
+        icon: icon
+      });
+      markersArray.push(marker);
+    } else {
+      alert('Geocode was not successful for the following reason: '
+        + status);
+    }
+  });*/
+ }
+
+function deleteOverlays() {
+  for (var i = 0; i < markersArray.length; i++) {
+    markersArray[i].setMap(null);
+  }
+  markersArray = [];
+}
+  
+  google.maps.event.addDomListener(window, 'load', initialize);
+	</script>
+  </head>
+  <body>
+      <div id="map-canvas"></div>
+    <div id="content-pane">
+      <div id="divinputs">
+	<textarea id="input" rows="10" cols="150">
+2015.02.24 07:55 	Kerékpár 86701 leadás 07:58:29 (0902-Üllői út - Ferenc Körút - 0901-Markusovszky tér) 	 
+2015.02.23 12:55 	Kerékpár 86578 leadás 13:02:23 (0901-Markusovszky tér - 1101-Szent Gellért tér) 	 
+2015.02.23 07:48 	Kerékpár 86971 leadás 07:50:27 (0902-Üllői út - Ferenc Körút - 0901-Markusovszky tér) 	 
+2015.02.20 11:53 	Kerékpár 86575 leadás 12:07:31 (1101-Szent Gellért tér - 1108-Pázmány Péter sétány - ELTE) 	 
+2015.02.20 11:40 	Kerékpár 86938 leadás 11:47:42 (0901-Markusovszky tér - 1101-Szent Gellért tér) 	 
+2015.02.20 07:55 	Kerékpár 86938 leadás 07:57:33 (0902-Üllői út - Ferenc Körút - 0901-Markusovszky tér) 	 
+2015.02.18 18:33 	Kerékpár 86033 leadás 18:41:44 (0802-Astoria - 1101-Szent Gellért tér) 	 
+2015.02.18 18:12 	Kerékpár 86903 leadás 18:19:32 (0901-Markusovszky tér - 0905-Kálvin tér) 	
+2015.02.18 15:43 	Kerékpár 86903 leadás 15:52:59 (1102-Műegyetem - 0901-Markusovszky tér) 	 
+2015.02.18 14:12 	Kerékpár 86358 leadás 14:19:56 (0901-Markusovszky tér - 1102-Műegyetem) 	 
+2015.02.18 08:39 	Kerékpár 86009 leadás 08:48:20 (0518-Deák tér - 0901-Markusovszky tér) 	 
+2015.02.17 11:47 	Kerékpár 87068 leadás 12:00:00 (0901-Markusovszky tér - 1108-Pázmány Péter sétány - ELTE) 	 
+2015.02.17 07:57 	Kerékpár 86295 leadás 08:00:36 (0902-Üllői út - Ferenc Körút - 0901-Markusovszky tér) 	 
+2015.02.16 11:50 	Kerékpár 86684 leadás 11:58:36 (0901-Markusovszky tér - 1102-Műegyetem) 	 
+2015.02.16 07:53 	Kerékpár 86883 leadás 07:56:15 (0902-Üllői út - Ferenc Körút - 0901-Markusovszky tér) 	 
+2015.02.13 11:46 	Kerékpár 86300 leadás 11:58:57 (0901-Markusovszky tér - 1108-Pázmány Péter sétány - ELTE) 	 
+2015.02.13 07:46 	Kerékpár 87014 leadás 07:48:50 (0902-Üllői út - Ferenc Körút - 0901-Markusovszky tér) 	 
+2015.02.12 11:46 	Kerékpár 86299 leadás 11:58:18 (0901-Markusovszky tér - 1104-Petőfi híd - Buda) 	 
+2015.02.12 07:52 	Kerékpár 86299 leadás 07:55:41 (0902-Üllői út - Ferenc Körút - 0901-Markusovszky tér) 	 
+2015.02.11 16:26 	Kerékpár 86299 leadás 16:28:53 (0901-Markusovszky tér - 0902-Üllői út - Ferenc Körút ) 	 
+2015.02.11 07:54 	Kerékpár 86299 leadás 07:57:25 (0902-Üllői út - Ferenc Körút - 0901-Markusovszky tér) 	 
+2015.02.10 11:46 	Kerékpár 86813 leadás 12:01:44 (0901-Markusovszky tér - 1108-Pázmány Péter sétány - ELTE) 	 
+2015.02.10 07:47 	Kerékpár 86515 leadás 07:51:28 (0902-Üllői út - Ferenc Körút - 0901-Markusovszky tér) 	 
+2015.02.09 15:02 	Kerékpár 86166 leadás 15:07:38 (0901-Markusovszky tér - 0515-Fővám tér) 	 
+2015.02.09 08:53 	Kerékpár 86931 leadás 08:55:54 (0902-Üllői út - Ferenc Körút - 0901-Markusovszky tér) 	 
+2015.02.06 11:37 	Kerékpár 86988 leadás 11:50:19 (1104-Petőfi híd - Buda - 0905-Kálvin tér)
+	</textarea>
+        <p><button type="button" onclick="run();">Run</button></p>
+      </div>
+	  <div id="fullstat"></div>
+      <div id="outputDiv"></div>
+    </div>
+
+  </body>
+</html>

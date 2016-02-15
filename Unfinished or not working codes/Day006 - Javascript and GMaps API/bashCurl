@@ -1,0 +1,5 @@
+#!/bin/bash
+for i in `seq 0 7`;
+do
+   curl --globoff http://www.eskuvohelyszin.hu/helyszinek/talalatok.html?first=0$i\&\&xsrch[2]=13 > $i.html
+done  

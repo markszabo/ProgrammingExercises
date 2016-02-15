@@ -1,0 +1,10 @@
+#!/bin/bash
+SumOfSquares=0;
+Sum=0;
+for i in `seq 1 100`;
+do
+   SumOfSquares=$(($SumOfSquares+$i*$i));
+	Sum=$(($Sum+$i));
+done  
+
+echo $(($Sum*$Sum-$SumOfSquares));
